@@ -15,5 +15,12 @@ class DHeap:
     def __str__(self):
         return ','.join([str(pair) for pair in self.pairs])
 
+    def bubbleUp(self):
+        pass
+
 dheap_obj = DHeap([Pair('a',1), Pair('x',99)])
 print('dheap_obj: ',dheap_obj)
+
+# Listing 2.12 The Huffman coding algorithm
+
+# hahahahahaha :)
