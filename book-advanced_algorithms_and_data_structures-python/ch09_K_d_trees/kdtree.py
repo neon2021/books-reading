@@ -1,6 +1,31 @@
 import math
 from typing import List
 
+# refer to: https://stackoverflow.com/a/62429374
+#
+# step 1: use sys.path to know the base path for importing modules
+# step 2: add PYTHONPATH to env configuration in launch.json
+#
+import sys
+print(f'sys.path: {sys.path}')
+# first element of output is:
+# 'book-advanced_algorithms_and_data_structures-python.ch09_K_d_trees'
+
+# refer to: http://stackoverflow.com/a/7583738
+#
+# this solution could tackle with the module path that contains hyphens or underscores
+#
+# bpq_module = __import__("bounded_priority_queue")
+# print(f'bpq_module: {bpq_module}')
+# # import importlib
+# # bpq_module = importlib.import_module("book-advanced_algorithms_and_data_structures-python.ch09_K_d_trees.bounded_priority_queue")
+# bpq = bpq_module.BoundedPriorityQueue
+# print(f'bpq: {bpq}')
+
+from bounded_priority_queue import BoundedPriorityQueue
+bpq = BoundedPriorityQueue(3)
+print(f'bpq: {bpq}')
+
 # Listing9.1 The KdTree class
 GLOBAL_K = 2
 
@@ -14,11 +39,9 @@ class KdNode:
 
     def __str__(self):
         indent = self.level * '      '
-        return f'\n{indent}name={self.name}, \
-        \n{indent}point={self.point},'+ \
+        return f'\n{indent}\'{self.name}\'{self.point},level={self.level}'+ \
         (f'\n{indent}left={self.left},' if self.left else '')+ \
-        (f'\n{indent}right={self.right},' if self.right else '')+ \
-        f'\n{indent}level={self.level}'
+        (f'\n{indent}right={self.right},' if self.right else '')
 
 class KdTree:
     def __init__(self, root:KdNode, k:int=GLOBAL_K):
@@ -33,6 +56,11 @@ def getNodeKey(node:KdNode)->float:
     return getPointKey(node.point, node.level)
 
 def getPointKey(point:tuple, level:int)->float:
+    '''
+    parameters: point - the coordinates of the point
+                level - the level of the point's node in a tree
+    returns: the value of the point's coordinate which is related to the point's level in the tree
+    '''
     j = level % GLOBAL_K
     return point[j]
 
@@ -46,11 +74,18 @@ def sign(x):
     return (x>0)-(x<0)
 
 def compare(point:tuple, node:KdNode):
+    '''
+    parameters: point - 
+                node  -
+    returns:
+        compare the value of the coordinate of point and node.point
+        and the coordinate is calculated by the level of the node
+    '''
     print(f'{five_dots}from reference docs, compare{five_dots}')
     return cmp(getPointKey(point, node.level), getNodeKey(node))
 
 def splitDistance(point:tuple, node:KdNode):
-    return abs(getPointKey(point, node.level), getNodeKey(node))
+    return abs(getPointKey(point, node.level) - getNodeKey(node))
 
 # Listing 9.3 The search method
 def search(node:KdNode, target:tuple):
@@ -183,6 +218,73 @@ def remove(node: KdNode, point:tuple)->KdNode:
         node.right = remove(node.right, point)
         return node
 
+# Listing 9.9 The nearestNeighbor method
+def nearest_neighbor(node:KdNode, target:tuple, nnDist=float('inf'), nn=None)->tuple:
+    if node is None:
+        return (nnDist, nn)
+    else:
+        dist = distance(node.point, target)
+        if dist < nnDist:
+            nnDist, nn = dist, node.point
+        if compare(target, node) < 0:
+            closeBranch = node.left
+            farBranch = node.right
+        else:
+            closeBranch = node.right
+            farBranch = node.left
+        nnDist, nn = nearest_neighbor(closeBranch, target, nnDist, nn)
+        if splitDistance(target, node) < nnDist:
+            nnDist, nn = nearest_neighbor(farBranch, target, nnDist, nn)
+        return nnDist, nn
+
+def distance(point1:tuple, point2:tuple):
+    return math.sqrt( \
+        sum( \
+            [ (point1[i]-point2[i])**2 for i in range(0,GLOBAL_K)] \
+        ) \
+    )
+
+# Listing 9.10 The nNearestNeighbor method
+def nNearestNeighbor(node:KdNode, target:tuple, n:int)->BoundedPriorityQueue:
+    # pq = BoundedPriorityQueue(n)
+    pq = BoundedPriorityQueue(k=n)
+    # pq.insert((float('inf'),None))
+    pq.add((float('inf'),None))
+    print(f'nNearestNeighbor> target:{target}, pq.heap: {pq.heap}')
+    pq = n_nearest_neighbor(node, target, pq)
+    # nnnDist, _ = pq.peek()
+    nnnDist = pq.max()
+    print(f'nNearestNeighbor> target:{target}, pq.heap: {pq.heap}, nnnDist:{nnnDist}')
+    if nnnDist == float('inf'):
+        # pq.top()
+        pq.extract_max()
+    return pq
+
+def n_nearest_neighbor(node:KdNode, target:tuple, pq:BoundedPriorityQueue)->BoundedPriorityQueue:
+    print(f'n_nearest_neighbor> target:{target}, pq.heap: {pq.heap}')
+    if node is None:
+        print(f'n_nearest_neighbor> returning pq')
+        return pq
+    else:
+        dist = distance(node.point, target)
+        # pq.insert((dist, node.point))
+        pq.add((dist, node.point))
+        if compare(target, node) < 0:
+            closeBranch = node.left
+            farBranch = node.right
+        else:
+            closeBranch = node.right
+            farBranch = node.left
+        print(f'n_nearest_neighbor> target:{target}, pq.heap: {pq.heap}, closeBranch.point:{closeBranch.point if closeBranch is not None else "none"}')
+        pq = n_nearest_neighbor(closeBranch,target,pq)
+        # nnnDist, _ = pq.peek()
+        nnnDist = pq.max()
+        print(f'n_nearest_neighbor> nnnDist:{nnnDist}')
+        if splitDistance(target, node) < nnnDist:
+            pq=n_nearest_neighbor(farBranch, target, pq)
+        return pq
+
+
 if __name__ == '__main__':
     kd_node_root=KdNode('A',(0,5),None,None,0)
     kd_tree_1 = KdTree(kd_node_root)
@@ -201,3 +303,33 @@ if __name__ == '__main__':
 
     remove(kd_tree_2_root_node, (2.5,3))
     print(f'\nafter remove (1,-1): kd_tree_2_root_node:\n {kd_tree_2_root_node}')
+
+    # refer to kdtrees paska13 pdf
+    kd_tree_3_root_node=KdNode('A',(34,90),None,None,0)
+    insert(kd_tree_3_root_node,'',(10,75))
+    insert(kd_tree_3_root_node,'',(70,80))
+
+    # build subtree of (10,75)
+    insert(kd_tree_3_root_node,'',(25,10))
+    insert(kd_tree_3_root_node,'',(20,50))
+
+    # build subtree of (70,80)
+    insert(kd_tree_3_root_node,'',(80,40))
+    insert(kd_tree_3_root_node,'',(50,90))
+    insert(kd_tree_3_root_node,'',(70,30))
+    insert(kd_tree_3_root_node,'',(90,60))
+    
+    # build subtree of (70,30)
+    insert(kd_tree_3_root_node,'',(50,25))
+    # insert(kd_tree_3_root_node,'',(35,50))
+    insert(kd_tree_3_root_node,'',(60,10))
+    print('kd_tree_3_root_node:\n',kd_tree_3_root_node)
+    
+    found_closest_point = nearest_neighbor(kd_tree_3_root_node,(40,50))
+    print('found_closest_point: ',found_closest_point)
+
+    # the output result refers to the figure kdtrees_paska13_pdf-p44-nnsearch_example_ii.jpeg
+    #
+    # description: each element is a tuple that represents a found node, and the tuple's first element is distance between the found node and the target, and the second element is the postion of the found node.
+    found_n_closest_points = nNearestNeighbor(kd_tree_3_root_node,(40,50),3)
+    print('n: ',3,', found_n_closest_points: ',found_n_closest_points.heap)
