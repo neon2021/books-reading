@@ -1,5 +1,6 @@
 import math
 from typing import List
+import datetime
 
 # refer to: https://stackoverflow.com/a/62429374
 #
@@ -53,6 +54,17 @@ class KdTree:
 
 # Listing 9.2 Helper functions
 def getNodeKey(node:KdNode)->float:
+    '''Gets the value of the coordinate respecting to node.level
+
+    Parameters
+    ----------
+    node : KdNode
+
+    Returns
+    -------
+    float
+        the value of the specific coordinate
+    '''
     return getPointKey(node.point, node.level)
 
 def getPointKey(point:tuple, level:int)->float:
@@ -85,7 +97,20 @@ def compare(point:tuple, node:KdNode):
     return cmp(getPointKey(point, node.level), getNodeKey(node))
 
 def splitDistance(point:tuple, node:KdNode):
-    return abs(getPointKey(point, node.level) - getNodeKey(node))
+    """ Calculate the shortest distance between the point and the splitting line of node
+
+    Parameters
+    ----------
+    point   : tuple
+
+    node    : KdNode which splits the rectangular area
+
+    Returns
+    -------
+    float
+        the shortest distance
+    """
+    return abs(getPointKey(point, node.level)-getNodeKey(node))
 
 # Listing 9.3 The search method
 def search(node:KdNode, target:tuple):
@@ -232,6 +257,13 @@ def nearest_neighbor(node:KdNode, target:tuple, nnDist=float('inf'), nn=None)->t
         else:
             closeBranch = node.right
             farBranch = node.left
+        # Explanation on 20/09/2023:
+        #
+        # The two nearest_neighbor called below are very tricky.
+        #
+        # When the shortest distance between target and node is shorter than the nnDist found in closeBranch,
+        # we should continue to check the farBranch for avoiding to miss another closer point might be in the farBranch
+        #
         nnDist, nn = nearest_neighbor(closeBranch, target, nnDist, nn)
         if splitDistance(target, node) < nnDist:
             nnDist, nn = nearest_neighbor(farBranch, target, nnDist, nn)
@@ -284,7 +316,6 @@ def n_nearest_neighbor(node:KdNode, target:tuple, pq:BoundedPriorityQueue)->Boun
             pq=n_nearest_neighbor(farBranch, target, pq)
         return pq
 
-
 if __name__ == '__main__':
     kd_node_root=KdNode('A',(0,5),None,None,0)
     kd_tree_1 = KdTree(kd_node_root)
@@ -324,6 +355,8 @@ if __name__ == '__main__':
     # insert(kd_tree_3_root_node,'',(35,50))
     insert(kd_tree_3_root_node,'',(60,10))
     print('kd_tree_3_root_node:\n',kd_tree_3_root_node)
+    #
+    # show the tree in a coordinate graph, refer to: kdtees_draw_by_myself-show_a_tree_in_a_coordinate_graph.png
     
     found_closest_point = nearest_neighbor(kd_tree_3_root_node,(40,50))
     print('found_closest_point: ',found_closest_point)
@@ -333,3 +366,5 @@ if __name__ == '__main__':
     # description: each element is a tuple that represents a found node, and the tuple's first element is distance between the found node and the target, and the second element is the postion of the found node.
     found_n_closest_points = nNearestNeighbor(kd_tree_3_root_node,(40,50),3)
     print('n: ',3,', found_n_closest_points: ',found_n_closest_points.heap)
+
+    print('now: ',datetime.datetime.now())
